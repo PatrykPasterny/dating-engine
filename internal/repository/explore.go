@@ -48,10 +48,10 @@ func (er *ExploreRepository) GetLikedUser(
 		},
 		{
 			Key: "actorUserID", Value: bson.D{
-			{
-				Key: "$gt", Value: paginationToken,
+				{
+					Key: "$gt", Value: paginationToken,
+				},
 			},
-		},
 		},
 	}
 
@@ -95,10 +95,10 @@ func (er *ExploreRepository) GetNewLikedUser(
 		},
 		{
 			Key: "actorUserID", Value: bson.D{
-			{
-				Key: "$gt", Value: paginationToken,
+				{
+					Key: "$gt", Value: paginationToken,
+				},
 			},
-		},
 		},
 	}
 
@@ -159,63 +159,80 @@ func (er *ExploreRepository) MakeDecision(
 		},
 	}
 
-	userResult := er.collection.FindOne(ctx, userFilters, findOptions)
-	if userResult.Err() != nil {
-		return false, fmt.Errorf("finding user that made new decision: %w", userResult.Err())
+	session, err := er.mongoClient.StartSession()
+	if err != nil {
+		return false, fmt.Errorf("starting new mongo session: %w", err)
 	}
 
-	recipientResult := er.collection.FindOne(ctx, recipientFilters, findOptions)
-	if recipientResult.Err() != nil {
-		return false, fmt.Errorf("finding user that recieved new decision: %w", recipientResult.Err())
+	var mutualLikes bool
+
+	if err = session.StartTransaction(); err != nil {
+		return false, fmt.Errorf("starting new mongo transaction: %w", err)
 	}
+	if err = mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
+		userResult := er.collection.FindOne(ctx, userFilters, findOptions)
+		if userResult.Err() != nil {
+			return fmt.Errorf("finding user that made new decision: %w", userResult.Err())
+		}
 
-	var userMatch, recipientMatch model.Match
+		recipientResult := er.collection.FindOne(ctx, recipientFilters, findOptions)
+		if recipientResult.Err() != nil {
+			return fmt.Errorf("finding user that recieved new decision: %w", recipientResult.Err())
+		}
 
-	if err := userResult.Decode(&userMatch); err != nil {
-		return false, fmt.Errorf("decoding user that made new decision: %w", err)
-	}
+		var userMatch, recipientMatch model.Match
 
-	if err := recipientResult.Decode(&recipientMatch); err != nil {
-		return false, fmt.Errorf("decoding user that recieved new decision: %w", err)
-	}
+		if err = userResult.Decode(&userMatch); err != nil {
+			return fmt.Errorf("decoding user that made new decision: %w", err)
+		}
 
-	mutualLikes := decision && recipientMatch.Liked
+		if err = recipientResult.Decode(&recipientMatch); err != nil {
+			return fmt.Errorf("decoding user that recieved new decision: %w", err)
+		}
 
-	updateUser := bson.D{
-		{
-			Key: "$set",
-			Value: bson.D{
-				{
-					Key:   "liked",
-					Value: decision,
-				},
-				{
-					Key:   "matched",
-					Value: mutualLikes,
+		mutualLikes = decision && recipientMatch.Liked
+
+		updateUser := bson.D{
+			{
+				Key: "$set",
+				Value: bson.D{
+					{
+						Key:   "liked",
+						Value: decision,
+					},
+					{
+						Key:   "matched",
+						Value: mutualLikes,
+					},
 				},
 			},
-		},
-	}
+		}
 
-	updateRecipient := bson.D{
-		{
-			Key: "$set",
-			Value: bson.D{
-				{
-					Key:   "matched",
-					Value: mutualLikes,
+		updateRecipient := bson.D{
+			{
+				Key: "$set",
+				Value: bson.D{
+					{
+						Key:   "matched",
+						Value: mutualLikes,
+					},
 				},
 			},
-		},
-	}
+		}
 
-	if _, err := er.collection.UpdateOne(ctx, userFilters, updateUser, options.Update()); err != nil {
-		return false, fmt.Errorf("updating user with new decision: %w", err)
-	}
+		if _, err = er.collection.UpdateOne(ctx, userFilters, updateUser, options.Update()); err != nil {
+			return fmt.Errorf("updating user with new decision: %w", err)
+		}
 
-	if _, err := er.collection.UpdateOne(ctx, recipientFilters, updateRecipient, options.Update()); err != nil {
-		return false, fmt.Errorf("updating recipient with new decision: %w", err)
+		if _, err = er.collection.UpdateOne(ctx, recipientFilters, updateRecipient, options.Update()); err != nil {
+			return fmt.Errorf("updating recipient with new decision: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return false, fmt.Errorf("performing mongo transaction: %w", err)
 	}
+	session.EndSession(ctx)
 
 	return mutualLikes, nil
 }
