@@ -1,0 +1,18 @@
+# grpc server configurations
+server:
+  host: "muzz-api"
+  port: 8080
+
+# MongoDB credentials
+database:
+  uri: "mongodb://mongo:27017"
+  name: "db"
+  collection: "matches"
+
+# Redis credentials
+redis:
+  uri: "redis:6379"
+  password: ""
+  database: 0
+
+pageSize: 20

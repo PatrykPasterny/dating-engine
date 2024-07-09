@@ -1,0 +1,43 @@
+# Use root/example as user/password credentials
+version: '3.1'
+
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    networks:
+      - network1
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  muzz-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - network1
+    depends_on:
+      - mongo
+
+  tests:
+    build:
+      context: tests
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URI: "mongodb://mongo:27017"
+      DATABASE_NAME: "db"
+      DATABASE_COLLECTION: "matches"
+      BASE_URL: "muzz-api:8080"
+    networks:
+      - network1
+    depends_on:
+      - mongo
+      - app
+
+networks:
+  network1:
