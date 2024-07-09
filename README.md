@@ -60,3 +60,5 @@ recipient entities. This forced quite wide transaction span which may be at some
 would be worth running performance tests against the production data mirror before we decide to deploy it to production.
 5. I decided not to populate the logs from tests container to any file within repository, because in 
 normal enterprise infrastructure the CI/CD pipeline would handle the storing and accessing of such files.
+6. I decided not to add any pre commit hooks as in production code the linter and test checks would be performed in
+CI/CD pipelines.
