@@ -8,6 +8,11 @@ To run the service with all its dependencies clone the source code to your local
 git clone <clonning_url>
 ```
 
+Then install all go dependencies needed by the source code:
+```
+go mod download
+```
+
 Then use docker compose command to build all dependencies:
 ```
 docker compose up --build
