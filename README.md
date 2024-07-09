@@ -58,3 +58,5 @@ the complexity of the solution, but makes it more readable and easier to update 
 This also makes the put operation a little bit more complex as it forces the changes on both actors and 
 recipient entities. This forced quite wide transaction span which may be at some point a bottleneck, so it
 would be worth running performance tests against the production data mirror before we decide to deploy it to production.
+5. I decided not to populate the logs from tests container to any file within repository, because in 
+normal enterprise infrastructure the CI/CD pipeline would handle the storing and accessing of such files.
