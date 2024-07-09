@@ -67,3 +67,5 @@ would be worth running performance tests against the production data mirror befo
 normal enterprise infrastructure the CI/CD pipeline would handle the storing and accessing of such files.
 6. I decided not to add any pre commit hooks as in production code the linter and test checks would be performed in
 CI/CD pipelines.
+7. The swagger for grpc connection was not added as the proto files are outside internal file and client interface is 
+available to use or copy from other repositories.
